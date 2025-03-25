@@ -1,1 +1,15 @@
-sparker/.idea/
+.bloop
+.bsp
+.idea
+*metals*
+*.bak
+*databricks*
+bin
+*.txt
+project/project
+project/target
+target
+typings
+__builtins__.pyi
+__pycache__
+*.pyc
