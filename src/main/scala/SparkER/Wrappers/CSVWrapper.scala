@@ -43,10 +43,10 @@ object CSVWrapper extends WrapperTrait {
             ""
           }
           else {
-            attributes.filter(_.key == realIDField).map(_.value).mkString("").trim
+            attributes.filter(_.key.toLowerCase() == realIDField.toLowerCase()).map(_.value).mkString("").trim
           }
         }
-        Profile(profileID, attributes.filter(kv => kv.key != realIDField), realID, sourceId)
+        Profile(profileID, attributes.filter(kv => kv.key.toLowerCase() != realIDField.toLowerCase()), realID, sourceId)
     }
   }
 

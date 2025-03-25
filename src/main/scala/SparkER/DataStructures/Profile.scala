@@ -6,7 +6,10 @@ package SparkER.DataStructures
   * @author Giovanni Simonini
   * @since 2016/07/12
   */
-case class Profile(id: Long, attributes: scala.collection.mutable.MutableList[KeyValue] = new scala.collection.mutable.MutableList(), originalID: String = "", sourceId: Int = 0) extends ProfileTrait with Serializable {
+case class Profile(id: Long,
+	attributes: scala.collection.mutable.MutableList[KeyValue] = new scala.collection.mutable.MutableList(),
+	originalID: String = "",
+	sourceId: Int = 0) extends ProfileTrait with Serializable {
 
   /**
     * Add an attribute to the list of attributes

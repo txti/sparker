@@ -28,12 +28,15 @@ object TokenBlocking {
     * Performs the token blocking
     *
     * @param profiles      input to profiles to create blocks
-    * @param separatorIDs  id to separate profiles from different dataset (Clean-Clean context), if it is Dirty put -1
+    * @param separatorIDs  list of the ids that separates the different data sources (in case of Clean-Clean ER), "-1" if Dirty ER
     * @param keysToExclude keys to exclude from the blocking process
     * @return the blocks
     */
-  def createBlocks(profiles: RDD[Profile], separatorIDs: Array[Long] = Array.emptyLongArray, keysToExclude: Iterable[String] = Nil, removeStopWords: Boolean = false,
-                   createKeysFunctions : (Iterable[KeyValue], Iterable[String]) => Iterable[String] = createKeysFromProfileAttributes): RDD[BlockAbstract] = {
+  def createBlocks(profiles: RDD[Profile],
+	separatorIDs: Array[Long] = Array.emptyLongArray,
+	keysToExclude: Iterable[String] = Nil,
+	removeStopWords: Boolean = false,
+	createKeysFunctions: (Iterable[KeyValue], Iterable[String]) => Iterable[String] = createKeysFromProfileAttributes): RDD[BlockAbstract] = {
     /* For each profile returns the list of his tokens, produces (profileID, [list of tokens]) */
     val tokensPerProfile = profiles.map(profile => (profile.id, createKeysFunctions(profile.attributes, keysToExclude).filter(_.trim.length > 0).toSet))
     /* Associate each profile to each token, produces (tokenID, [list of profileID]) */
@@ -45,7 +48,7 @@ object TokenBlocking {
     }
     val profilePerKey = a.groupByKey().filter(_._2.size > 1)
 
-    /* For each tokens divides the profiles in two lists according to the original datasets where they come (in case of Clean-Clean) */
+    /* For each token divides the profiles in two lists according to the datasets they come from (only for Clean-Clean) */
     val profilesGrouped = profilePerKey.map {
       c =>
         val entityIds = c._2.toSet
@@ -78,9 +81,23 @@ object TokenBlocking {
     }
   }
 
-  def createBlocksClusterDebug(profiles: RDD[Profile], separatorIDs: Array[Long], clusters: List[KeysCluster], keysToExclude: Iterable[String] = Nil, excludeDefaultCluster: Boolean = false, clusterNameSeparator: String = Settings.SOURCE_NAME_SEPARATOR):
-
-  (RDD[BlockAbstract], scala.collection.Map[String, Map[Long, Iterable[String]]]) = {
+  /**
+    *
+    * @param profiles
+    * @param separatorIDs
+    * @param clusters
+    * @param keysToExclude
+    * @param excludeDefaultCluster
+    * @param clusterNameSeparator
+    * @return
+    */
+  def createBlocksClusterDebug(profiles: RDD[Profile],
+                               separatorIDs: Array[Long],
+                               clusters: List[KeysCluster],
+                               keysToExclude: Iterable[String] = Nil,
+                               excludeDefaultCluster: Boolean = false,
+                               clusterNameSeparator: String = Settings.SOURCE_NAME_SEPARATOR):
+	(RDD[BlockAbstract], scala.collection.Map[String, Map[Long, Iterable[String]]]) = {
     /** Obtains the ID of the default cluster: all the elements that are not in other clusters finish in this one */
     val defaultClusterID = clusters.maxBy(_.id).id
     /** Creates a map that contains the entropy for each cluster */
@@ -168,7 +185,7 @@ object TokenBlocking {
     } zipWithIndex()
 
     /* Map each row in an object BlockClean or BlockDirty */
-    val blocks : RDD[BlockAbstract] = profilesGroupedWithIds map {
+    val blocks: RDD[BlockAbstract] = profilesGroupedWithIds map {
       case ((entityIds, entropy, clusterID, blockingKey), blockId) =>
         if (separatorIDs.isEmpty) BlockDirty(blockId, entityIds, entropy, clusterID, blockingKey = blockingKey)
         else BlockClean(blockId, entityIds, entropy, clusterID, blockingKey = blockingKey)
@@ -186,7 +203,13 @@ object TokenBlocking {
     * @param keysToExclude keys to exclude from the blocking process
     * @return the blocks
     */
-  def createBlocksCluster(profiles: RDD[Profile], separatorIDs: Array[Long], clusters: List[KeysCluster], keysToExclude: Iterable[String] = Nil, excludeDefaultCluster: Boolean = false, clusterNameSeparator: String = Settings.SOURCE_NAME_SEPARATOR): RDD[BlockAbstract] = {
+  def createBlocksCluster(profiles: RDD[Profile],
+                          separatorIDs: Array[Long],
+                          clusters: List[KeysCluster],
+                          keysToExclude: Iterable[String] = Nil,
+                          excludeDefaultCluster: Boolean = false,
+                          clusterNameSeparator: String = Settings.SOURCE_NAME_SEPARATOR): RDD[BlockAbstract] = {
+
     /** Obtains the ID of the default cluster: all the elements that are not in other clusters finish in this one */
     val defaultClusterID = clusters.maxBy(_.id).id
     /** Creates a map that contains the entropy for each cluster */
@@ -329,6 +352,13 @@ object TokenBlocking {
     }
   }
 
+  /**
+    * Given a list of key-value items returns the tokens.
+    *
+    * @param elements
+    * @param separators
+    * @return
+    */
   def separateProfiles(elements: Set[Long], separators: Array[Long]): Array[Set[Long]] = {
     var input = elements
     var output: List[Set[Long]] = Nil

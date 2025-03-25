@@ -51,7 +51,6 @@ object LSH {
     hashes.toArray
   }
 
-
   def getHashCode(str: String): Int = {
     str.hashCode() & Integer.MAX_VALUE
   }

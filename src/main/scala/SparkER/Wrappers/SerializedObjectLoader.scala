@@ -1,6 +1,7 @@
 package SparkER.Wrappers
 
 import SparkER.DataStructures.{KeyValue, MatchingEntities, Profile}
+import SparkER.DataLoaders.SerializedLoader
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 
@@ -13,11 +14,11 @@ object SerializedObjectLoader extends WrapperTrait {
     @transient lazy val log = org.apache.log4j.LogManager.getRootLogger
 
     log.info("SPARKER - Start to loading entities")
-    val entities = DataLoaders.SerializedLoader.loadSerializedDataset(filePath)
+    val entities = SerializedLoader.loadSerializedDataset(filePath)
     log.info("SPARKER - Loading ended")
 
     log.info("SPARKER - Start to generate profiles")
-    val profiles: Array[Profile] = new Array(entities.size())
+    val profiles: Array[Profile] = new Array[Profile](entities.size())
 
     for (i <- 0 until entities.size()) {
       val profile = Profile(id = i + startIDFrom, originalID = i + "", sourceId = sourceId)
@@ -41,9 +42,9 @@ object SerializedObjectLoader extends WrapperTrait {
 
   def loadGroundtruth(filePath: String): RDD[MatchingEntities] = {
 
-    val groundtruth = DataLoaders.SerializedLoader.loadSerializedGroundtruth(filePath)
+    val groundtruth = SerializedLoader.loadSerializedGroundtruth(filePath)
 
-    val matchingEntitites: Array[MatchingEntities] = new Array(groundtruth.size())
+    val matchingEntitites: Array[MatchingEntities] = new Array[MatchingEntities](groundtruth.size())
 
     var i = 0
 

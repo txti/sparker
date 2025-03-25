@@ -1,21 +1,17 @@
 package SparkER.DataStructures
 
-/**
-  * Clean block: the profiles comes from two distinct datasets
-  *
-  * @author Giovanni Simononi
-  * @since 2016/12/07
-  */
-case class BlockClean(blockID: Long, profiles: Array[Set[Long]], var entropy: Double = -1, var clusterID: Integer = -1, blockingKey: String = "") extends BlockAbstract with Serializable {
-  override def getComparisonSize(): Double = {
+// GM
+  case class PBlockClean(blockID: Long, profiles: Array[Set[(Long, Profile)]], var entropy: Double = -1, var clusterID: Integer = -1, blockingKey: String = "") extends PBlockAbstract with Serializable {
+
+   override def getComparisonSize(): Double = {
     val a = profiles.filter(_.nonEmpty)
     if (a.length > 1) {
       //a.map(_.size.toDouble).product
       var comparisons: Double = 0
       var i = 0
-      while (i < a.length) {
+      while (i < profiles.length) {
         var j = i + 1
-        while (j < a.length) {
+        while (j < profiles.length) {
           comparisons += a(i).size.toDouble * a(j).size.toDouble
           j += 1
         }
@@ -36,11 +32,11 @@ case class BlockClean(blockID: Long, profiles: Array[Set[Long]], var entropy: Do
         val a = profiles(i)
         val b = profiles(j)
         for (e1 <- a; e2 <- b) {
-          if (e1 < e2) {
-            out = (e1, e2) :: out
+          if (e1._1 < e2._1) {
+            out = (e1._1, e2._1) :: out
           }
           else {
-            out = (e2, e1) :: out
+            out = (e2._1, e1._1) :: out
           }
         }
       }
@@ -48,4 +44,5 @@ case class BlockClean(blockID: Long, profiles: Array[Set[Long]], var entropy: Do
 
     out.toSet
   }
+
 }

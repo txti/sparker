@@ -21,8 +21,11 @@ object Converters {
     * @return RDD of profile blocks
     **/
   def blocksToProfileBlocks(blocks: RDD[BlockAbstract]): RDD[ProfileBlocks] = {
-    val profilesPerBlocks = blocks.flatMap(blockIDProfileIDFromBlock).groupByKey()
-    profilesPerBlocks map (x => ProfileBlocks(x._1, x._2.toSet))
+    blocks
+	.flatMap(blockIDProfileIDFromBlock)
+	.groupByKey()
+	.map (x => ProfileBlocks(x._1, x._2.toSet))
+     	.cache() // <--- GM
   }
 
   /**

@@ -5,4 +5,4 @@ package SparkER.DataStructures
   * @author Luca Gagliardelli
   * @since 2016/12/07
   */
-case class KeyValue(val key : String, val value : String) extends Serializable{}
+case class KeyValue(key : String, value : String) extends Serializable{}

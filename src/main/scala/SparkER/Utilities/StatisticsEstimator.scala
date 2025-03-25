@@ -5,33 +5,32 @@ import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 
-import scala.tools.nsc.interpreter.Completion.Candidates
-
 /**
   * Contains differents methods to estimate
   * PC and PQ.
+  *
   * @author Luca Gagliardelli, Song Zhu
   * @since 2016/12/11
   */
 object StatisticsEstimator {
   /**
     * Estimate PC and PQ
- *
+    *
     * @param groundtruth the groundtruth
     * @param profiles original RDD of profiles
     * @param edges RDD of the final edges after pruning
     * @param realIDKey key of the parameter contained in the attibutes of the profiles that represents the ID of a profile (the same ID contained in the groundtruth)
     * @return PC and PQ of the edges set
-    * */
-  def estimatePCandPQ(groundtruth : RDD[MatchingEntities], profiles : RDD[Profile], edges: RDD[WeightedEdge], realIDKey : String, firstDatasetMaxID : Long = -1) : (Double, Double) = {
+    **/
+  def estimatePCandPQ(groundtruth: RDD[MatchingEntities], profiles: RDD[Profile], edges: RDD[WeightedEdge], realIDKey: String, firstDatasetMaxID: Long = -1): (Double, Double) = {
     val profilesWithRealID = profiles.map(p => (p.id, p.getAttributeValues(realIDKey)))
 
     val candidatesCouplesID = edges.map(
       e =>
-        if(firstDatasetMaxID >= 0 && e.firstProfileID > firstDatasetMaxID){
+        if (firstDatasetMaxID >= 0 && e.firstProfileID > firstDatasetMaxID) {
           (e.secondProfileID, e.firstProfileID)
         }
-        else{
+        else {
           (e.firstProfileID, e.secondProfileID)
         }
     )
@@ -44,27 +43,27 @@ object StatisticsEstimator {
     val numCandidates = candidatesCouples.count()
     val totalPerfectMatch = groundtruth.count()
 
-    ((foundMatch.toDouble/totalPerfectMatch), (foundMatch.toDouble/numCandidates))
+    ((foundMatch.toDouble / totalPerfectMatch), (foundMatch.toDouble / numCandidates))
   }
 
   /**
     * Estimate PC and PQ
- *
+    *
     * @param groundtruth the groundtruth
     * @param profiles original RDD of profiles
     * @param edges RDD of the final edges after pruning
     * @param realIDKey key of the parameter contained in the attibutes of the profiles that represents the ID of a profile (the same ID contained in the groundtruth)
     * @return PC and PQ of the edges set
-    * */
-  def estimatePCandPQ2(groundtruth : RDD[MatchingEntities], profiles : RDD[Profile], edges: RDD[UnweightedEdge], realIDKey : String, firstDatasetMaxID : Long = -1) : (Double, Double) = {
+    **/
+  def estimatePCandPQ2(groundtruth: RDD[MatchingEntities], profiles: RDD[Profile], edges: RDD[UnweightedEdge], realIDKey: String, firstDatasetMaxID: Long = -1): (Double, Double) = {
     val profilesWithRealID = profiles.map(p => (p.id, p.getAttributeValues(realIDKey)))
 
     val candidatesCouplesID = edges.map(
       e =>
-        if(firstDatasetMaxID >= 0 && e.firstProfileID > firstDatasetMaxID){
+        if (firstDatasetMaxID >= 0 && e.firstProfileID > firstDatasetMaxID) {
           (e.secondProfileID, e.firstProfileID)
         }
-        else{
+        else {
           (e.firstProfileID, e.secondProfileID)
         }
     )
@@ -77,12 +76,12 @@ object StatisticsEstimator {
     val numCandidates = candidatesCouples.count()
     val totalPerfectMatch = groundtruth.count()
 
-    ((foundMatch.toDouble/totalPerfectMatch), (foundMatch.toDouble/numCandidates))
+    ((foundMatch.toDouble / totalPerfectMatch), (foundMatch.toDouble / numCandidates))
   }
 
   /**
     * Estimate PC and PQ profile real ID must be unique
- *
+    *
     * @param groundTruth the ground truth
     * @param profiles original RDD of profiles
     * @param candidates RDD of the final edges after pruning
@@ -108,7 +107,7 @@ object StatisticsEstimator {
               case _ => (pid._2, pid._1)
             }
           })
-          .combineByKey(x => Set(x),combinerAdd, combinerMerge)
+          .combineByKey(x => Set(x), combinerAdd, combinerMerge)
           .collectAsMap
       )
 
@@ -120,12 +119,12 @@ object StatisticsEstimator {
 
     gt.destroy
 
-    (foundMatch.toDouble/groundTruth.count, foundMatch.toDouble/candidates.count)
+    (foundMatch.toDouble / groundTruth.count, foundMatch.toDouble / candidates.count)
   }
 
   /**
     * Estimate PC and PQ
- *
+    *
     * @param groundTruth the ground truth
     * @param profiles original RDD of profiles
     * @param candidates RDD of the final edges after pruning
@@ -135,22 +134,23 @@ object StatisticsEstimator {
   def estimatePCPQ(groundTruth : RDD[MatchingEntities], profiles : RDD[Profile], candidates: RDD[(Long, Long)], realIDKey : String = "") : (Double, Double) = {
 
     val sc = SparkContext.getOrCreate()
-    val profilesWithRealID ={
-      if(realIDKey.isEmpty){
+    val profilesWithRealID = {
+      if (realIDKey.isEmpty) {
         sc.broadcast(profiles.map(p => (p.id, p.originalID)).collectAsMap)
       }
-      else{
+      else {
         sc.broadcast(profiles.map(p => (p.id, p.getAttributeValues(realIDKey))).collectAsMap)
       }
     }
 
     def combinerAdd(xs: Set[String], x: String): Set[String] = xs + x
+
     def combinerMerge(xs: Set[String], ys: Set[String]): Set[String] = xs ++ ys
 
     val gt =
       sc.broadcast(
         groundTruth.map(x => (x.firstEntityID, x.secondEntityID))
-          .combineByKey(x => Set(x),combinerAdd, combinerMerge)
+          .combineByKey(x => Set(x), combinerAdd, combinerMerge)
           .collectAsMap
       )
 
@@ -161,7 +161,7 @@ object StatisticsEstimator {
     gt.destroy
     profilesWithRealID.destroy
 
-    (foundMatch.toDouble/groundTruth.count, foundMatch.toDouble/candidates.count)
+    (foundMatch.toDouble / groundTruth.count, foundMatch.toDouble / candidates.count)
   }
 
   def test(groundTruth : RDD[MatchingEntities], profiles : RDD[Profile], candidates: RDD[(Long, Long)], realIDKey : String) = {
@@ -172,14 +172,14 @@ object StatisticsEstimator {
     def combinerMerge(xs: Set[Long], ys: Set[Long]): Set[Long] = xs ++ ys
 
     val a = groundTruth
-          .map(me => {
-            val pid = (profilesWithRealID.value(me.firstEntityID), profilesWithRealID.value(me.secondEntityID))
-            pid match {
-              case (pid1, pid2) if pid1 < pid2 => (pid1, pid2)
-              case _ => (pid._2, pid._1)
-            }
-          })
-          .combineByKey(x => Set(x),combinerAdd, combinerMerge)
+      .map(me => {
+        val pid = (profilesWithRealID.value(me.firstEntityID), profilesWithRealID.value(me.secondEntityID))
+        pid match {
+          case (pid1, pid2) if pid1 < pid2 => (pid1, pid2)
+          case _ => (pid._2, pid._1)
+        }
+      })
+      .combineByKey(x => Set(x), combinerAdd, combinerMerge)
 
     val gt =
       sc.broadcast(a.collectAsMap)
@@ -198,24 +198,24 @@ object StatisticsEstimator {
         .groupByKey().filter(containsKey(mapGroundTruth.value))
         .map(x => (profilesWithRealID.value(x._1), profilesWithRealID.value(mapGroundTruth.value(x._1))))
 
-    val test =common.subtract(foundMatch).distinct()
+    val test = common.subtract(foundMatch).distinct()
 
     println(test.count)
     println(candidates.count)
     println(test.intersection(candidates).count)
-    println(test.intersection(a.flatMap(x =>for(y <- x._2) yield (x._1, y))).count)
+    println(test.intersection(a.flatMap(x => for (y <- x._2) yield (x._1, y))).count)
   }
 
-    /**
+  /**
     * Estimate PC and PQ
- *
+    *
     * @param groundtruth the groundtruth
     * @param profiles original RDD of profiles
     * @param edges RDD of the final edges after pruning
     * @param realIDKey key of the parameter contained in the attibutes of the profiles that represents the ID of a profile (the same ID contained in the groundtruth)
     * @return PC and PQ of the edges set
-    * */
-  def estimatePCandPQbroadcast(groundtruth : RDD[MatchingEntities], profiles : RDD[Profile], edges: RDD[WeightedEdge], realIDKey : String, isCleanClean: Boolean = false) : (Double, Double) = {
+    **/
+  def estimatePCandPQbroadcast(groundtruth: RDD[MatchingEntities], profiles: RDD[Profile], edges: RDD[WeightedEdge], realIDKey: String, isCleanClean: Boolean = false): (Double, Double) = {
 
     val profilesWithRealID = SparkContext.getOrCreate().broadcast(profiles.map(p => (p.id, p.getAttributeValues(realIDKey))).collect.toMap)
     val candidatesCouples = edges.map(edge => edge.getEntityMatch(profilesWithRealID.value))
@@ -227,19 +227,19 @@ object StatisticsEstimator {
     val numCandidates = edges.count()
     val totalPerfectMatch = groundtruth.count()
 
-    (foundMatch.toDouble/totalPerfectMatch, foundMatch.toDouble/numCandidates)
+    (foundMatch.toDouble / totalPerfectMatch, foundMatch.toDouble / numCandidates)
   }
 
   /**
     * Estimate PC and PQ
- *
+    *
     * @param groundtruth the groundtruth
     * @param profiles original RDD of profiles
     * @param edges RDD of the final edges after pruning
     * @param realIDKey key of the parameter contained in the attibutes of the profiles that represents the ID of a profile (the same ID contained in the groundtruth)
     * @return PC and PQ of the edges set
-    * */
-  def estimatePCandPQbroadcast2(groundtruth : RDD[MatchingEntities], profiles : RDD[Profile], edges: RDD[UnweightedEdge], realIDKey : String, isCleanClean: Boolean = false) : (Double, Double) = {
+    **/
+  def estimatePCandPQbroadcast2(groundtruth: RDD[MatchingEntities], profiles: RDD[Profile], edges: RDD[UnweightedEdge], realIDKey: String, isCleanClean: Boolean = false): (Double, Double) = {
 
     val profilesWithRealID = SparkContext.getOrCreate().broadcast(profiles.map(p => (p.id, p.getAttributeValues(realIDKey))).collect.toMap)
     val candidatesCouples = edges.map(edge => edge.getEntityMatch(profilesWithRealID.value))
@@ -253,11 +253,11 @@ object StatisticsEstimator {
 
     println("Matches2: " + foundMatch)
 
-    (foundMatch.toDouble/totalPerfectMatch, foundMatch.toDouble/numCandidates)
+    (foundMatch.toDouble / totalPerfectMatch, foundMatch.toDouble / numCandidates)
   }
 
   def comparisonCandidatesGroundtruth(groundtruth: RDD[MatchingEntities], candidates: RDD[MatchingEntities], isCleanClean: Boolean): Long = {
-    if(isCleanClean) {
+    if (isCleanClean) {
       val mapGroundTruth = SparkContext.getOrCreate().broadcast(groundtruth.map(gt => (gt.firstEntityID, gt.secondEntityID)).collect.toMap)
       /*
       val commonCounter =
@@ -275,16 +275,18 @@ object StatisticsEstimator {
   // Check match elements
   def containsKey(map: Map[String, String])(input: (String, Iterable[String])): Boolean = {
     // If not exists the fist key in map, exit immediately
-    if(! map.contains(input._1))
+    if (!map.contains(input._1))
       false
     else {
       // Loop exit at first match found
       val matchValue = map(input._1)
-      def loop(list: List[String]) : Boolean = {
-        if(list == Nil) false
-        else if(list.head == matchValue) true
+
+      def loop(list: List[String]): Boolean = {
+        if (list == Nil) false
+        else if (list.head == matchValue) true
         else loop(list.tail)
       }
+
       loop(input._2.toList)
     }
   }
@@ -293,8 +295,8 @@ object StatisticsEstimator {
   /***
     * Estimates the blocks entropy
     * */
-  def estimateNormalizedEntropy(blocks : RDD[BlockAbstract], profileBlocks: Broadcast[Map[Long,ProfileBlocks]]) : RDD[(Long, Double)] = {
-    val keysPerBlock = blocks.map{
+  def estimateNormalizedEntropy(blocks: RDD[BlockAbstract], profileBlocks: Broadcast[Map[Long, ProfileBlocks]]): RDD[(Long, Double)] = {
+    val keysPerBlock = blocks.map {
       block =>
         val allKeys = block.getAllProfiles.flatMap {
           profileID =>
@@ -309,18 +311,18 @@ object StatisticsEstimator {
         val keys = blockWithKeys._2
         val blockSize = blockWithKeys._3.toDouble
 
-        val numberOfKeys = keys.size.toDouble
-        val entropy = -keys.groupBy(x => x).map(x => (x._2.size)).map(s => (s / numberOfKeys) * Math.log(s.toDouble / numberOfKeys)).sum / numberOfKeys
+        val numberOfKeys = keys.length.toDouble
+        val entropy = -keys.groupBy(x => x).map(x => (x._2.length)).map(s => (s / numberOfKeys) * Math.log(s.toDouble / numberOfKeys)).sum / numberOfKeys
 
-        (blockID, entropy/blockSize)
+        (blockID, entropy / blockSize)
     }
   }
 
   /***
     * Estimates the blocks entropy
     * */
-  def estimateEntropy(blocks : RDD[BlockAbstract], profileBlocks: Broadcast[Map[Long,ProfileBlocks]]): RDD[(Long, Double)] = {
-    val keysPerBlock = blocks.map{
+  def estimateEntropy(blocks: RDD[BlockAbstract], profileBlocks: Broadcast[Map[Long, ProfileBlocks]]): RDD[(Long, Double)] = {
+    val keysPerBlock = blocks.map {
       block =>
         val allKeys = block.getAllProfiles.flatMap {
           profileID =>
@@ -334,8 +336,8 @@ object StatisticsEstimator {
         val blockID = blockWithKeys._1
         val keys = blockWithKeys._2
 
-        val numberOfKeys = keys.size.toDouble
-        val entropy = -keys.groupBy(x => x).map(x => (x._2.size)).map(s => (s / numberOfKeys) * Math.log(s.toDouble / numberOfKeys)).sum / numberOfKeys
+        val numberOfKeys = keys.length.toDouble
+        val entropy = -keys.groupBy(x => x).map(x => (x._2.length)).map(s => (s / numberOfKeys) * Math.log(s.toDouble / numberOfKeys)).sum / numberOfKeys
 
         (blockID, entropy)
     }

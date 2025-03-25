@@ -15,6 +15,26 @@ import scala.collection.mutable.MutableList
   */
 object JSONWrapper {
 
+
+  def parseData(key: String, data: Any, p: Profile, fieldsToKeep: List[String], realIDField: String): Unit = {
+    data match {
+      case jsonArray: JSONArray =>
+        val it = jsonArray.iterator()
+        while (it.hasNext) {
+          p.addAttribute(KeyValue(key, it.next().toString))
+          parseData(key, it.next(), p, fieldsToKeep, realIDField)
+        }
+      case jsonbject: JSONObject =>
+        val it = jsonbject.keys()
+        while (it.hasNext) {
+          val key = it.next()
+          p.addAttribute(KeyValue(key, jsonbject.get(key).toString))
+          parseData(key, jsonbject.get(key), p, fieldsToKeep, realIDField)
+        }
+      case _ => p.addAttribute(KeyValue(key, data.toString))
+    }
+  }
+
   /**
     * Load the profiles from a JSON file.
     * The JSON must contains a JSONObject for each row, and the JSONObject must be in the form key: value
@@ -41,14 +61,7 @@ object JSONWrapper {
         val key = keys.next()
         if (key != realIDField && (fieldsToKeep.isEmpty || fieldsToKeep.contains(key))) {
           val data = obj.get(key)
-          data match {
-            case jsonArray: JSONArray =>
-              val it = data.asInstanceOf[JSONArray].iterator()
-              while (it.hasNext) {
-                p.addAttribute(KeyValue(key, it.next().toString))
-              }
-            case _ => p.addAttribute(KeyValue(key, data.toString))
-          }
+          parseData(key, data, p, fieldsToKeep, realIDField)
         }
       }
       p

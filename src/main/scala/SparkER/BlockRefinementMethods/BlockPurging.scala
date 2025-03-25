@@ -89,7 +89,7 @@ object BlockPurging {
     var previousBC : Double = 0
     var previousCC : Double = 0
     var previousSize : Double = 0
-    val arraySize = input.size
+    val arraySize = input.length
 
     for(i <- arraySize-1 to 0 by -1) {
       previousSize = currentSize
