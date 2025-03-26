@@ -23,7 +23,8 @@ object Dependencies {
     "org.jgrapht" % "jgrapht-core" % Versions.jgrapht,
     "org.json" % "json" % Versions.json,
     "ch.qos.reload4j" % "reload4j" % Versions.reload4j,
-    "org.apache.livy" %% "livy-core" % Versions.livy exclude("com.esotericsoftware.kryo", "kryo")
+    "org.apache.livy" %% "livy-core" % Versions.livy exclude("com.esotericsoftware.kryo", "kryo"),
+    "org.scalameta" % "semanticdb-scalac_2.12.8" % Versions.semanticDb
   )
 
   lazy val testdeps = Seq(

@@ -11,4 +11,5 @@ object Versions {
   lazy val sparkTest = "3.5.0_2.0.1"
   lazy val reload4j = "1.2.19"
   lazy val jackson = "2.15.2"
+  lazy val semanticDb = "4.5.1"
 }

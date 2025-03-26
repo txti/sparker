@@ -1,37 +1,48 @@
+import Dependencies._
+
+scalaVersion := Versions.scalaVersion
+
 name := "spark_er"
+organization := "org.scify"
 version := "1.0"
-scalaVersion := "2.11.8"
-val sparkVersion = "2.0.2"
 
-unmanagedBase := baseDirectory.value / "custom_lib"
+lazy val root = (project in file("."))
+  .settings(commonSettings)
+  .settings(rootSettings)
+  .settings(MergeRules.settings)
+  .settings(
+    description := "Document and Entity Clustering Library",
+    libraryDependencies ++= common ++ spark ++ misc ++ testdeps,
+    assembly / test  := {},
+    Test / fork := true
+  )
 
+lazy val rootSettings = Seq(
+  concurrentRestrictions := Seq(
+    Tags.limit(Tags.CPU, java.lang.Runtime.getRuntime.availableProcessors()),
+    // limit to 1 concurrent test task, even across sub-projects
+    Tags.limitSum(1, Tags.Test, Tags.Untagged))
+)
 
-libraryDependencies += "org.apache.spark" % "spark-core_2.11" % "2.1.0"
+lazy val commonSettings = Defaults.coreDefaultSettings ++ Seq(
+  organization := "org.scify",
+  crossPaths := true,
+  scalaVersion := Versions.scalaVersion,
+  publishArtifact := false,
+  Test / parallelExecution := false,
 
-// https://mvnrepository.com/artifact/org.apache.spark/spark-sql_2.11
-libraryDependencies += "org.apache.spark" % "spark-sql_2.11" % "2.1.0"
+  // We need to exclude jms/jmxtools/etc because it causes undecipherable SBT errors  :(
+  ivyXML :=
+    <dependencies>
+      <exclude module="jms"/>
+      <exclude module="jmxtools"/>
+      <exclude module="jmxri"/>
+    </dependencies>
 
-// https://mvnrepository.com/artifact/org.apache.spark/spark-graphx_2.11
-libraryDependencies += "org.apache.spark" % "spark-graphx_2.11" % "2.1.0"
-
-libraryDependencies += "org.apache.spark" % "spark-mllib_2.11" % "2.1.0"
-
-libraryDependencies += "org.apache.spark" % "spark-hive_2.11" % "2.1.0"
-
-// https://mvnrepository.com/artifact/com.twitter/algebird-core_2.11
-//libraryDependencies += "com.twitter" % "algebird-core_2.11" % "0.12.3"
-
-// https://mvnrepository.com/artifact/org.apache.commons/commons-math3
-libraryDependencies += "org.apache.commons" % "commons-math3" % "3.6.1"
-
-// https://mvnrepository.com/artifact/commons-codec/commons-codec
-libraryDependencies += "commons-codec" % "commons-codec" % "1.11"
-
-// https://mvnrepository.com/artifact/org.jgrapht/jgrapht-core
-libraryDependencies += "org.jgrapht" % "jgrapht-core" % "1.0.1"
-
-// https://mvnrepository.com/artifact/org.json/json
-libraryDependencies += "org.json" % "json" % "20170516"
-
-
-//mainClass in Compile := Some("Experiments.Main")
+//  resolvers ++= Seq(
+//    DefaultMavenRepository,
+//    Resolver.sonatypeOssRepos("releases"),
+//    Resolver.mavenCentral
+//    // Resolver.typesafeRepo("releases")
+//	)
+)

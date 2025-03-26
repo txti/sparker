@@ -104,8 +104,8 @@ object SortedNeighborhood {
     profilesGroupedWithIds map {
       case (entityIds, blockId) =>
         if (separatorIDs.isEmpty)
-          BlockDirty(blockId.toInt, entityIds)
-        else BlockClean(blockId.toInt, entityIds)
+          BlockDirty(blockId, entityIds)
+        else BlockClean(blockId, entityIds)
     }
   }
 }
