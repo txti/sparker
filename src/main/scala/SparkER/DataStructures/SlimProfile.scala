@@ -7,7 +7,6 @@ case class SlimProfile(id: Int, attributes: scala.collection.mutable.MutableList
   object  SlimProfile{
 
   def apply(profile : Profile): SlimProfile = {
-    SlimProfile(profile.id.toInt, profile.attributes, profile.originalID, profile.sourceId)
+    SlimProfile(profile.id, profile.attributes, profile.originalID, profile.sourceId)
   }
-
 }
