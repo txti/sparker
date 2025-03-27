@@ -13,7 +13,7 @@ lazy val root = (project in file("."))
   .settings(
     description := "Document and Entity Clustering Library",
     libraryDependencies ++= common ++ spark ++ misc ++ testdeps,
-    assembly / test  := {},
+    // assembly / test  := {},
     Test / fork := true
   )
 
