@@ -5,6 +5,8 @@ import SparkER.DataStructures.ProfileBlocks
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 
+import scala.collection.mutable.Map
+
 /**
   * Created by Luca on 04/08/2017.
   */
@@ -18,59 +20,65 @@ object CommonNodePruning {
     * @param separatorID           maximum profile ID of the first dataset (-1 if there is only one dataset)
     * @return an RDD which contains (number of distinct edges, (profileID, number of neighbours))
     **/
-  def computeStatistics(profileBlocksFiltered: RDD[ProfileBlocks],
+    def computeStatistics(profileBlocksFiltered: RDD[ProfileBlocks],
                         blockIndex: Broadcast[scala.collection.Map[Long, Array[Set[Long]]]],
-                        maxID: Int,
+                        maxID: Long,
                         separatorID: Array[Long]
-                       ): RDD[(Int, (Long, Int))] = {
+                       ): RDD[(Long, (Long, Long))] = {
 
-    profileBlocksFiltered.mapPartitions { partition =>
-      val localWeights = Array.fill[Double](maxID + 1) {
-        0
-      }
-      val neighbours = Array.ofDim[Int](maxID + 1)
-
-      partition.map { pb =>
-        var neighboursNumber = 0
-        var distinctEdges = 0
-        val profileID = pb.profileID
-        val profileBlocks = pb.blocks
-
-        profileBlocks.foreach { block =>
-          val blockID = block.blockID
-          val blockProfiles = blockIndex.value.get(blockID)
-          if (blockProfiles.isDefined) {
-            val profilesIDs = {
-              if (separatorID.isEmpty) {
-                blockProfiles.get.head
-              }
-              else {
-                PruningUtils.getAllNeighbors(profileID, blockProfiles.get, separatorID)
-              }
+        profileBlocksFiltered.mapPartitions { partition =>
+            val localWeights: Map[Long, Double] = Map()
+            (0L to maxID + 1L).foreach { id =>
+                localWeights(id) = 0.0
             }
 
-            profilesIDs.foreach { secondProfileID =>
-              val neighbourID = secondProfileID.toInt
-              val neighbourWeight = localWeights(neighbourID)
-              localWeights.update(neighbourID, neighbourWeight + 1)
-              if (neighbourWeight == 1) {//Todo: per me deve essere == 0 non == 1
-                neighbours.update(neighboursNumber, neighbourID)
-                neighboursNumber += 1
-                if (profileID < neighbourID) {
-                  distinctEdges += 1
+            val neighbours: Map[Long, Long] = Map()
+            (0L to maxID + 1L).foreach { id =>
+                neighbours(id) = 0L
+            }
+
+        partition.map { pb =>
+            var neighboursNumber = 0
+            var distinctEdges = 0
+            val profileID = pb.profileID
+            val profileBlocks = pb.blocks
+
+            profileBlocks.foreach { block =>
+            val blockID = block.blockID
+            val blockProfiles = blockIndex.value.get(blockID)
+            if (blockProfiles.isDefined) {
+                val profilesIDs = {
+                if (separatorID.isEmpty) {
+                    blockProfiles.get.head
                 }
-              }
+                else {
+                    PruningUtils.getAllNeighbors(
+                        profileID, blockProfiles.get, separatorID)
+                }
+                }
+
+                profilesIDs.foreach { secondProfileID =>
+                val neighbourID = secondProfileID
+                val neighbourWeight = localWeights(neighbourID)
+                localWeights.update(neighbourID, neighbourWeight + 1)
+                if (neighbourWeight == 1) {//Todo: per me deve essere == 0 non == 1
+                    neighbours.update(neighboursNumber, neighbourID)
+                    neighboursNumber += 1
+                    if (profileID < neighbourID) {
+                    distinctEdges += 1
+                    }
+                }
+                }
             }
-          }
-        }
+            }
 
-        for (i <- 0 until neighboursNumber) {
-          localWeights.update(neighbours(i), 0)
-        }
+            (0L to neighboursNumber).foreach { i =>
+                localWeights.update(neighbours(i), 0)
+            }
 
-        (distinctEdges, (profileID, neighboursNumber))
-      }
-    }
+            (distinctEdges, (profileID, neighboursNumber))
+        }
+        }
   }
 
   /**
@@ -128,11 +136,11 @@ object CommonNodePruning {
               separatorID: Array[Long],
               useEntropy: Boolean,
               blocksEntropies: Broadcast[scala.collection.Map[Long, Double]],
-              weights: Array[Double],
-              entropies: Array[Double],
-              neighbours: Array[Int],
+              weights: Map[Long, Double],
+              entropies: Map[Long, Double],
+              neighbours: Map[Long, Long],
               firstStep: Boolean
-             ): Int = {
+             ): Long = {
     var neighboursNumber = 0
     val profileID = pb.profileID
     val profileBlocks = pb.blocks
@@ -167,7 +175,7 @@ object CommonNodePruning {
         }
 
         profilesIDs.foreach { secondProfileID =>
-          val neighbourID = secondProfileID.toInt
+          val neighbourID = secondProfileID
           if ((profileID < neighbourID) || firstStep) {
             weights.update(neighbourID, weights(neighbourID) + 1)
 
@@ -207,10 +215,10 @@ object CommonNodePruning {
     * @return number of neighbours
     **/
   def calcWeights(pb: ProfileBlocks,
-                  weights: Array[Double],
-                  neighbours: Array[Int],
-                  entropies: Array[Double],
-                  neighboursNumber: Int,
+                  weights: Map[Long, Double],
+                  neighbours: Map[Long, Long],
+                  entropies: Map[Long, Double],
+                  neighboursNumber: Long,
                   blockIndex: Broadcast[scala.collection.Map[Long, Array[Set[Long]]]],
                   separatorID: Array[Long],
                   weightType: String,
@@ -223,7 +231,7 @@ object CommonNodePruning {
     if (weightType == WeightTypes.chiSquare) {
       val numberOfProfileBlocks = pb.blocks.size
       val totalNumberOfBlocks: Double = blockIndex.value.size.toDouble
-      for (i <- 0 until neighboursNumber) {
+      (0L to neighboursNumber).foreach { i =>
         val neighbourID = neighbours(i)
         if (useEntropy) {
           weights.update(neighbourID, calcChiSquare(weights(neighbourID), profileBlocksSizeIndex.value(neighbourID), numberOfProfileBlocks, totalNumberOfBlocks) * entropies(neighbourID))
@@ -251,7 +259,7 @@ object CommonNodePruning {
             }
           }
 
-          for (i <- 0 until neighboursNumber) {
+          (0L to neighboursNumber).foreach { i =>
             val neighbourID = neighbours(i)
             weights.update(neighbourID, weights(neighbourID) / comparisons)
             if (useEntropy) {
@@ -263,7 +271,7 @@ object CommonNodePruning {
     }
     else if (weightType == WeightTypes.JS) {
       val numberOfProfileBlocks = pb.blocks.size
-      for (i <- 0 until neighboursNumber) {
+      (0L to neighboursNumber).foreach { i =>
         val neighbourID = neighbours(i)
         val commonBlocks = weights(neighbourID)
         val JS = {
@@ -280,7 +288,7 @@ object CommonNodePruning {
     else if (weightType == WeightTypes.EJS) {
       val profileNumberOfNeighbours = edgesPerProfile.value.getOrElse(pb.profileID, 0.00000000001)
       val numberOfProfileBlocks = pb.blocks.size
-      for (i <- 0 until neighboursNumber) {
+      (0L to neighboursNumber).foreach { i =>
         val neighbourID = neighbours(i)
         val commonBlocks = weights(neighbourID)
         val EJS = {
@@ -297,7 +305,7 @@ object CommonNodePruning {
     else if (weightType == WeightTypes.ECBS) {
       val blocksNumber = blockIndex.value.size
       val numberOfProfileBlocks = pb.blocks.size
-      for (i <- 0 until neighboursNumber) {
+      (0L to neighboursNumber).foreach { i =>
         val neighbourID = neighbours(i)
         val commonBlocks = weights(neighbourID)
         val ECBS = {
@@ -322,12 +330,12 @@ object CommonNodePruning {
     * @param useEntropy       if true use the provided entropies to improve the edge weighting
     * @param neighboursNumber number of neighbours
     **/
-  def doReset(weights: Array[Double],
-              neighbours: Array[Int],
-              entropies: Array[Double],
+  def doReset(weights: Map[Long, Double],
+              neighbours: Map[Long, Long],
+              entropies: Map[Long, Double],
               useEntropy: Boolean,
-              neighboursNumber: Int): Unit = {
-    for (i <- 0 until neighboursNumber) {
+              neighboursNumber: Long): Unit = {
+    (0L to neighboursNumber).foreach { i =>
       val neighbourID = neighbours(i)
       weights.update(neighbourID, 0)
       if (useEntropy) {

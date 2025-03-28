@@ -7,6 +7,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 
+import scala.collection.mutable.Map
+
 /**
   * Created by Luca on 03/05/2017.
   */
@@ -30,7 +32,7 @@ object WNP {
     **/
   def WNP(profileBlocksFiltered: RDD[ProfileBlocks],
           blockIndex: Broadcast[scala.collection.Map[Long, Array[Set[Long]]]],
-          maxID: Int,
+          maxID: Long,
           separatorIDs: Array[Long],
           groundtruth: Broadcast[scala.collection.immutable.Set[(Long, Long)]],
           thresholdType: String = PruningUtils.ThresholdTypes.AVG,
@@ -90,12 +92,12 @@ object WNP {
     * @param thresholdType    type of threshold to use
     * @return the profile threshold
     **/
-  def calcThreshold(weights: Array[Double],
-                    neighbours: Array[Int],
-                    neighboursNumber: Int,
+  def calcThreshold(weights: Map[Long, Double],
+                    neighbours: Map[Long, Long],
+                    neighboursNumber: Long,
                     thresholdType: String): Double = {
     var acc: Double = 0
-    for (i <- 0 until neighboursNumber) {
+    (0L to neighboursNumber).foreach { i =>
       val neighbourID = neighbours(i)
       if (thresholdType == PruningUtils.ThresholdTypes.AVG) {
         acc += weights(neighbourID)
@@ -128,9 +130,9 @@ object WNP {
     * @return a tuple that contains the number of retained edges and the edges that exists in the groundtruth
     **/
   def doPruning(profileID: Long,
-                weights: Array[Double],
-                neighbours: Array[Int],
-                neighboursNumber: Int,
+                weights: Map[Long, Double],
+                neighbours: Map[Long, Long],
+                neighboursNumber: Long,
                 groundtruth: Broadcast[scala.collection.immutable.Set[(Long, Long)]],
                 weightType: String,
                 comparisonType: String,
@@ -146,7 +148,8 @@ object WNP {
     //@transient lazy val log = LogManager.getRootLogger
 
     if (weightType == WeightTypes.chiSquare) {
-      for (i <- 0 until neighboursNumber) {
+
+      (0L to neighboursNumber).foreach { i =>
         val neighbourID = neighbours(i)
         val neighbourThreshold = thresholds.value(neighbourID)
         val neighbourWeight = weights(neighbourID)
@@ -162,7 +165,7 @@ object WNP {
       }
     }
     else {
-      for (i <- 0 until neighboursNumber) {
+      (0L to neighboursNumber).foreach { i =>
         val neighbourID = neighbours(i)
         val neighbourThreshold = thresholds.value(neighbourID)
         val neighbourWeight = weights(neighbourID)
@@ -207,7 +210,7 @@ object WNP {
     **/
   def calcThresholds(profileBlocksFiltered: RDD[ProfileBlocks],
                      blockIndex: Broadcast[scala.collection.Map[Long, Array[Set[Long]]]],
-                     maxID: Int,
+                     maxID: Long,
                      separatorID: Array[Long],
                      thresholdType: String,
                      weightType: String,
@@ -219,26 +222,33 @@ object WNP {
                     ): RDD[(Long, Double)] = {
 
     profileBlocksFiltered.mapPartitions { partition =>
-      val localWeights = Array.fill[Double](maxID + 1) {
-        0
-      }
-      val neighbours = Array.ofDim[Int](maxID + 1)
-      var neighboursNumber = 0
+        val localWeights: Map[Long, Double] = Map()
+        (0L to maxID + 1L).foreach { id =>
+            localWeights(id) = 0.0
+        }
 
-      val entropies: Array[Double] = {
-        if (useEntropy) {
-          Array.fill[Double](maxID + 1) {
-            0.0
-          }
+        val neighbours: Map[Long, Long] = Map()
+        (0L to maxID + 1L).foreach { id =>
+            neighbours(id) = 0L
+
         }
-        else {
-          null
-        }
+
+      var neighboursNumber = 0L
+
+      val entropies: Map[Long,Double] = Map()
+
+      (0L to maxID + 1).foreach { id =>
+          if (useEntropy) entropies(id) = 0.0 else Double.NaN
       }
 
       partition.map { pb =>
-        neighboursNumber = CommonNodePruning.calcCBS(pb, blockIndex, separatorID, useEntropy, blocksEntropies, localWeights, entropies, neighbours, true)
-        CommonNodePruning.calcWeights(pb, localWeights, neighbours, entropies, neighboursNumber, blockIndex, separatorID, weightType, profileBlocksSizeIndex, useEntropy, numberOfEdges, edgesPerProfile)
+        neighboursNumber = CommonNodePruning.calcCBS(
+            pb, blockIndex, separatorID, useEntropy,
+            blocksEntropies, localWeights, entropies, neighbours, true)
+        CommonNodePruning.calcWeights(
+            pb, localWeights, neighbours, entropies,
+            neighboursNumber, blockIndex, separatorID,
+            weightType, profileBlocksSizeIndex, useEntropy, numberOfEdges, edgesPerProfile)
         val threshold = calcThreshold(localWeights, neighbours, neighboursNumber, thresholdType)
         CommonNodePruning.doReset(localWeights, neighbours, entropies, useEntropy, neighboursNumber)
         (pb.profileID, threshold)
@@ -267,7 +277,7 @@ object WNP {
     **/
   def pruning(profileBlocksFiltered: RDD[ProfileBlocks],
               blockIndex: Broadcast[scala.collection.Map[Long, Array[Set[Long]]]],
-              maxID: Int,
+              maxID: Long,
               separatorID: Array[Long],
               groundtruth: Broadcast[scala.collection.immutable.Set[(Long, Long)]],
               thresholdType: String,
@@ -282,31 +292,30 @@ object WNP {
               edgesPerProfile: Broadcast[scala.collection.Map[Long, Double]]
              ): RDD[(Double, Double, Iterable[UnweightedEdge])] = {
 
-    profileBlocksFiltered.mapPartitions { partition =>
-      val localWeights = Array.fill[Double](maxID + 1) {
-        0
-      }
-      val neighbours = Array.ofDim[Int](maxID + 1)
-      var neighboursNumber = 0
+        profileBlocksFiltered.mapPartitions { partition =>
+            val localWeights: Map[Long, Double] = Map()
+            (0L to maxID + 1L).foreach { id =>
+                localWeights(id) = 0.0
+            }
 
-      val entropies: Array[Double] = {
-        if (useEntropy) {
-          Array.fill[Double](maxID + 1) {
-            0.0
-          }
-        }
-        else {
-          null
-        }
-      }
+            val neighbours: Map[Long, Long] = Map()
+            (0L to maxID + 1L).foreach { id =>
+                neighbours(id) = 0L
+            }
+            var neighboursNumber = 0L
 
-      partition.map { pb =>
-        neighboursNumber = CommonNodePruning.calcCBS(pb, blockIndex, separatorID, useEntropy, blocksEntropies, localWeights, entropies, neighbours, false)
-        CommonNodePruning.calcWeights(pb, localWeights, neighbours, entropies, neighboursNumber, blockIndex, separatorID, weightType, profileBlocksSizeIndex, useEntropy, numberOfEdges, edgesPerProfile)
-        val result = doPruning(pb.profileID, localWeights, neighbours, neighboursNumber, groundtruth, weightType, comparisonType, thresholds, chi2divider)
-        CommonNodePruning.doReset(localWeights, neighbours, entropies, useEntropy, neighboursNumber)
-        result
-      }
+            val entropies: Map[Long, Double] = Map()
+            (0L to maxID + 1L).foreach { id =>
+                entropies(id) = { if (useEntropy) 0.0 else Double.NaN }
+            }
+
+            partition.map { pb =>
+                neighboursNumber = CommonNodePruning.calcCBS(pb, blockIndex, separatorID, useEntropy, blocksEntropies, localWeights, entropies, neighbours, false)
+                CommonNodePruning.calcWeights(pb, localWeights, neighbours, entropies, neighboursNumber, blockIndex, separatorID, weightType, profileBlocksSizeIndex, useEntropy, numberOfEdges, edgesPerProfile)
+                val result = doPruning(pb.profileID, localWeights, neighbours, neighboursNumber, groundtruth, weightType, comparisonType, thresholds, chi2divider)
+                CommonNodePruning.doReset(localWeights, neighbours, entropies, useEntropy, neighboursNumber)
+                result
+            }
+        }
     }
-  }
 }
