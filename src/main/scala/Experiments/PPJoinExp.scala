@@ -19,13 +19,13 @@ object PPJoinExp {
     val dataset = "census"
 
     /* Base path where the dataset is located */
-    val basePath = "datasets/dirty/" + dataset + "/"
+    val basePath = s"python/datasets/dirty/${dataset}"
 
     /* Profiles to join */
-    val filePath = basePath + dataset + ".csv"
+    val filePath = s"${basePath}/${dataset}.csv"
 
     /* Groundtruth */
-    val gtPath = basePath + dataset + "_groundtruth.csv"
+    val gtPath = s"${basePath}/${dataset}_groundtruth.csv"
 
     /** Log file */
     val logPath = "log.txt"

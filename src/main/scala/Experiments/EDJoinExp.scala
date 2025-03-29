@@ -15,17 +15,18 @@ import org.apache.spark.{SparkConf, SparkContext}
   **/
 object EDJoinExp {
   def main(args: Array[String]): Unit = {
+
     /* Dataset to test */
     val dataset = "restaurant"
 
     /* Base path where the dataset is located */
-    val basePath = "datasets/dirty/" + dataset + "/"
+    val basePath = s"python/datasets/dirty/${dataset}"
 
     /* Profiles to join */
-    val filePath = basePath + dataset + ".csv"
+    val filePath = s"${basePath}/${dataset}.csv"
 
     /* Groundtruth */
-    val gtPath = basePath + dataset + "_groundtruth.csv"
+    val gtPath = s"${basePath}/${dataset}_groundtruth.csv"
 
     /** Log file */
     val logPath = "log.txt"
